@@ -1,0 +1,28 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # No `npm ci`: the electron dependency is ~100 MB and none of it is needed
+      # to know whether the sources parse. This job stays under ~15 s.
+      - name: package.json parses
+        run: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8'))"
+      - name: JS syntax
+        run: |
+          for f in $(find src test -name '*.js' -o -name '*.cjs'); do
+            node --check "$f" || exit 1
+          done
+      - name: launchers are LF/CRLF correct
+        run: |
+          file start.sh | grep -q 'ASCII text' || { echo 'start.sh has CRLF — it will fail on Linux'; exit 1; }
+          file start.bat | grep -q 'CRLF' || { echo 'start.bat is not CRLF'; exit 1; }
