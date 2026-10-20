@@ -1,0 +1,19 @@
+{
+  "name": "neko-capture",
+  "productName": "neko-capture",
+  "version": "0.1.0",
+  "description": "Capture a URL at an exact size (and interact with it), or capture an app window. Record/stop to MP4.",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "mediabunny": "^1.62.0"
+  },
+  "devDependencies": {
+    "electron": "^43.8.1"
+  }
+}

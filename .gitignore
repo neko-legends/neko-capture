@@ -1,0 +1,39 @@
+# deps
+node_modules/
+
+# build output
+dist/
+out/
+build/
+*.asar
+
+# recordings and captures (never commit media — it is large and machine-local)
+*.mp4
+*.webm
+*.mkv
+*.mov
+*.avi
+recordings/
+captures/
+Videos/
+
+# logs and crash dumps
+*.log
+npm-debug.log*
+logs/
+*.dmp
+
+# environment / secrets
+.env
+.env.*
+*.pem
+*.key
+
+# editor / OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*~

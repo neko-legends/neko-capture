@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>smoke</title>
+<style>html,body{margin:0;height:100%;background:#123;overflow:hidden}canvas{display:block}</style>
+<canvas id="c"></canvas>
+<select id="s"><option>one</option><option>two</option></select>
+<script>
+  const c = document.getElementById('c'), g = c.getContext('2d');
+  const fit = () => { c.width = innerWidth; c.height = innerHeight; };
+  fit(); addEventListener('resize', fit);
+  const t0 = performance.now();
+  (function f(){ const t=(performance.now()-t0)/1000;
+    g.fillStyle='#123'; g.fillRect(0,0,c.width,c.height);
+    g.fillStyle='#f2b33d'; g.beginPath(); g.arc(c.width/2+Math.cos(t*2)*300, c.height/2+Math.sin(t*2)*200, 60, 0, 7); g.fill();
+    g.fillStyle='#fff'; g.font='40px sans-serif'; g.fillText(`${innerWidth}x${innerHeight} dpr ${devicePixelRatio} t=${t.toFixed(2)}`, 30, 60);
+    requestAnimationFrame(f); })();
+  try { const a = new AudioContext(); const o = a.createOscillator(); o.frequency.value = 440; o.connect(a.destination); o.start(); } catch {}
+</script>

@@ -1,0 +1,14 @@
+# Normalise line endings: LF in the repo, so start.sh runs on Linux and the JS is identical everywhere.
+* text=auto eol=lf
+
+# Windows launchers need CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary / generated
+*.mp4 binary
+*.webm binary
+*.png binary
+*.jpg binary
+*.ico binary
+package-lock.json text eol=lf

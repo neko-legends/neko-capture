@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' blob: mediastream:; style-src 'self'; script-src 'self'">
+  <title>neko-capture</title>
+  <link rel="stylesheet" href="control.css">
+</head>
+<body>
+  <header>
+    <h1>neko<span>-capture</span></h1>
+    <div id="pill" class="pill">idle</div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-mode="stage" aria-selected="true">Web page</button>
+    <button role="tab" data-mode="window" aria-selected="false">App window</button>
+  </nav>
+
+  <section id="panel-stage" class="panel">
+    <label class="field">
+      <span>URL</span>
+      <div class="row">
+        <input id="url" type="url" spellcheck="false" placeholder="http://localhost:5173/">
+        <button id="open" class="primary">Open</button>
+      </div>
+    </label>
+    <div class="field">
+      <span>Size (video pixels)</span>
+      <div class="row size">
+        <input id="w" type="number" min="64" max="7680" step="2">
+        <i>×</i>
+        <input id="h" type="number" min="64" max="4320" step="2">
+        <label class="check"><input id="borderless" type="checkbox"> borderless</label>
+      </div>
+      <div class="chips" id="presets"></div>
+    </div>
+    <div id="stage-status" class="status muted">Stage not open.</div>
+    <div class="row tools">
+      <button id="reload" disabled>Reload <kbd>F5</kbd></button>
+      <button id="devtools" disabled>DevTools <kbd>F12</kbd></button>
+      <button id="focus" disabled>Focus stage</button>
+    </div>
+    <p id="wm-tip" class="tip" hidden></p>
+  </section>
+
+  <section id="panel-window" class="panel" hidden>
+    <div class="row">
+      <button id="pick" class="primary">Choose window…</button>
+      <label id="sysaudio-wrap" class="check"><input id="sysaudio" type="checkbox" checked> system audio</label>
+    </div>
+    <div id="picked" class="status muted">Nothing chosen.</div>
+    <div id="sources" class="sources"></div>
+  </section>
+
+  <section class="panel record">
+    <div class="row opts">
+      <label class="field small"><span>FPS</span>
+        <select id="fps"><option>30</option><option>60</option></select>
+      </label>
+      <label class="field small"><span>Quality</span>
+        <select id="quality"><option value="medium">Medium</option><option value="high">High</option><option value="veryhigh">Very high</option></select>
+      </label>
+    </div>
+    <div class="field">
+      <span>Save to</span>
+      <div class="row">
+        <code id="outdir" class="path"></code>
+        <button id="choose-dir">Change</button>
+        <button id="open-dir">Open</button>
+      </div>
+    </div>
+    <button id="rec" class="rec"><b class="dot"></b><span id="rec-label">Record</span><kbd id="hotkey"></kbd></button>
+    <div id="rec-info" class="status muted"></div>
+    <video id="preview" muted playsinline hidden></video>
+  </section>
+
+  <section class="panel">
+    <h2>Recordings</h2>
+    <ul id="recent" class="recent"><li class="muted">None yet.</li></ul>
+  </section>
+
+  <script type="module" src="control.js"></script>
+</body>
+</html>
