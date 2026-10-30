@@ -14,6 +14,15 @@ Recordings are MP4 (H.264 video, AAC or Opus audio) at a steady 30 or 60 fps.
 - **Linux (Omarchy/Hyprland):** `./start.sh`
 
 The first run does `npm install` (needs [Node.js](https://nodejs.org) 20+).
+There is nothing to compile: these scripts run the code straight from `src/`, so edits show up the next time you start it.
+
+## Build a standalone app (optional)
+
+- **Windows:** `build.bat` creates `dist\neko-capture-win32-x64\neko-capture.exe`
+- **Linux:** `./build.sh` creates `dist/neko-capture-linux-x64/neko-capture`
+
+Copy that whole folder anywhere and run the exe. It doesn't need Node.js.
+Run the build again after changing the code.
 
 ## Use
 
@@ -23,6 +32,9 @@ The first run does `npm install` (needs [Node.js](https://nodejs.org) 20+).
 2. **App window tab:** press **Choose window…** and click a thumbnail. On Wayland the system picker opens instead.
 3. Press **Record**, or **Ctrl+Alt+R** from anywhere. Press it again to stop.
    Files go to `Videos/neko-capture` unless you change the folder.
+4. **Trim:** when a recording stops, the **Clip** box opens below it (or press **Edit** next to any recording).
+   Drag the two handles to set the start and end. The times show in seconds as you drag.
+   **Play clip** plays just that part. **Export clip** saves `<recording> clip.mp4` next to the original and leaves the original as it was.
 
 ## How it works
 
@@ -31,6 +43,7 @@ The first run does `npm install` (needs [Node.js](https://nodejs.org) 20+).
 | `src/main.js` | Windows, settings, capture-source plumbing, writing files |
 | `src/renderer/control.*` | The control panel UI |
 | `src/renderer/recorder.js` | MediaStream → WebCodecs encoder → [Mediabunny](https://mediabunny.dev) MP4 muxer |
+| `src/renderer/editor.js` | Clip editor: start/end slider, preview, trimmed export (Mediabunny `Conversion`) |
 
 - **Exact page size:** the window's content is sized `W/scale × H/scale` and page zoom is set to `1/scale`.
   The page then sees `innerWidth = W` and `devicePixelRatio = 1` on any monitor scaling.

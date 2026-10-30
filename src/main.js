@@ -7,9 +7,10 @@
 // Recording itself happens in the control window (WebCodecs + Mediabunny → MP4); main only hands it the
 // stream source and writes the bytes to disk.
 
-import { app, BrowserWindow, ipcMain, desktopCapturer, session, screen, shell, dialog, globalShortcut } from 'electron';
+import { app, BrowserWindow, ipcMain, desktopCapturer, session, screen, shell, dialog, globalShortcut, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
+import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -26,11 +27,16 @@ if (process.platform === 'linux') {
 if (features.length) app.commandLine.appendSwitch('enable-features', features.join(','));
 // A game in the stage must keep running at full speed while you look at the control window,
 // and a covered window must keep painting (Windows pauses occluded windows otherwise).
+// Tab capture must not re-render the stage at the monitor's scaling (we want exactly W×H).
+app.commandLine.appendSwitch('disable-features', 'WebContentsCaptureHiDPI');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 if (SMOKE) app.commandLine.appendSwitch('no-sandbox');
+// nc-media://file/?f=<path> lets the clip editor's <video> play a recording (with seeking) without
+// opening up file:// access. Only files this session recorded or exported are served.
+protocol.registerSchemesAsPrivileged([{ scheme: 'nc-media', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } }]);
 
 // ---------- settings ----------
 const DEFAULTS = {
@@ -167,6 +173,34 @@ async function listSources() {
 // ---------- files ----------
 const files = new Map();
 let fileSeq = 0;
+const known = new Set(); // finished recordings/clips the renderer may read back
+const readers = new Map(); // file -> Promise<FileHandle> for the clip editor's reads
+function reader(file) {
+  if (!known.has(file)) throw new Error('Not a recording from this session.');
+  if (!readers.has(file)) readers.set(file, fs.promises.open(file, 'r'));
+  return readers.get(file);
+}
+
+function setupMediaProtocol() {
+  protocol.handle('nc-media', async (req) => {
+    const file = new URL(req.url).searchParams.get('f') ?? '';
+    if (!known.has(file)) return new Response('not found', { status: 404 });
+    let size;
+    try { size = (await fs.promises.stat(file)).size; } catch { return new Response('gone', { status: 404 }); }
+    const headers = { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes' };
+    const m = /bytes=(\d*)-(\d*)/.exec(req.headers.get('range') || '');
+    if (!m || (!m[1] && !m[2]) || size === 0) {
+      return new Response(Readable.toWeb(fs.createReadStream(file)), { status: 200, headers: { ...headers, 'Content-Length': String(size) } });
+    }
+    let start, end;
+    if (m[1]) { start = +m[1]; end = m[2] ? Math.min(+m[2], size - 1) : size - 1; }
+    else { start = Math.max(0, size - +m[2]); end = size - 1; } // suffix range: last N bytes
+    if (start > end || start >= size) return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } });
+    return new Response(Readable.toWeb(fs.createReadStream(file, { start, end })), {
+      status: 206, headers: { ...headers, 'Content-Length': String(end - start + 1), 'Content-Range': `bytes ${start}-${end}/${size}` },
+    });
+  });
+}
 function stamp() {
   const d = new Date(), p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
@@ -199,10 +233,14 @@ function setupIpc() {
     return { audio, name: source.name };
   });
 
-  ipcMain.handle('file:create', async (_e, ext) => {
-    fs.mkdirSync(settings.outDir, { recursive: true });
-    let file = path.join(settings.outDir, `neko-capture ${stamp()}.${ext}`);
-    for (let i = 2; fs.existsSync(file); i++) file = path.join(settings.outDir, `neko-capture ${stamp()} (${i}).${ext}`);
+  ipcMain.handle('file:create', async (_e, ext, opts = {}) => {
+    // A clip goes next to the recording it came from: "<recording> clip.mp4", "<recording> clip (2).mp4", …
+    const like = opts.like && known.has(opts.like) ? opts.like : null;
+    const dir = like ? path.dirname(like) : settings.outDir;
+    const base = like ? `${path.parse(like).name} clip` : `neko-capture ${stamp()}`;
+    fs.mkdirSync(dir, { recursive: true });
+    let file = path.join(dir, `${base}.${ext}`);
+    for (let i = 2; fs.existsSync(file); i++) file = path.join(dir, `${base} (${i}).${ext}`);
     const fh = await fs.promises.open(file, 'w');
     const id = ++fileSeq;
     files.set(id, { fh, file });
@@ -220,7 +258,20 @@ function setupIpc() {
     files.delete(id);
     await f.fh.close();
     if (discard) { fs.rmSync(f.file, { force: true }); return null; }
+    known.add(f.file);
     return { file: f.file, size: fs.statSync(f.file).size };
+  });
+  ipcMain.handle('file:size', async (_e, file) => (await (await reader(file)).stat()).size);
+  ipcMain.handle('file:read', async (_e, file, start, end) => {
+    const fh = await reader(file);
+    const buf = Buffer.alloc(Math.max(0, end - start));
+    const { bytesRead } = await fh.read(buf, 0, buf.length, start);
+    return bytesRead === buf.length ? buf : buf.subarray(0, bytesRead);
+  });
+  ipcMain.handle('file:release', async (_e, file) => {
+    const p = readers.get(file);
+    readers.delete(file);
+    if (p) await (await p).close().catch(() => {});
   });
 
   ipcMain.handle('dir:choose', async () => {
@@ -255,6 +306,7 @@ app.whenReady().then(() => {
   loadSettings();
   setupIpc();
   setupDisplayMedia();
+  setupMediaProtocol();
   createControl();
   try { globalShortcut.register(HOTKEY, () => send('record:toggle')); } catch { /* hotkey unavailable (some Wayland setups) */ }
   if (SMOKE) runSmoke();

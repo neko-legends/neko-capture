@@ -1,4 +1,5 @@
 import { Recorder } from './recorder.js';
+import { ClipEditor } from './editor.js';
 
 const $ = (id) => document.getElementById(id);
 const nc = window.nc;
@@ -8,6 +9,7 @@ const PRESETS = [['1080p', 1920, 1080], ['720p', 1280, 720], ['1440p', 2560, 144
 let mode = cfg.mode;
 let picked = null; // {id, name}
 let stageOpen = false;
+let stageSize = null; // the size the open stage was asked for
 
 // ---------- init fields ----------
 $('url').value = cfg.url;
@@ -77,6 +79,7 @@ $('focus').onclick = () => nc.focusStage();
 
 nc.onStageInfo((info) => {
   stageOpen = info.open;
+  stageSize = info.open && info.wanted ? { width: info.wanted[0], height: info.wanted[1] } : null;
   for (const id of ['reload', 'devtools', 'focus']) $(id).disabled = !info.open;
   const st = $('stage-status');
   if (!info.open) { st.className = 'status muted'; st.textContent = 'Stage not open.'; $('wm-tip').hidden = true; }
@@ -137,6 +140,7 @@ $('open-dir').onclick = () => nc.openDir();
 // ---------- recording ----------
 const recent = [];
 const rec = new Recorder({ onStop: (r) => finished(r) });
+const editor = new ClipEditor({ onExported: (r) => { recent.unshift(r); renderRecent(); } });
 let tick = null;
 
 const fmtTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -159,13 +163,15 @@ function updateRecButton() {
 async function startRecording() {
   if (rec.state !== 'idle' || !canRecord()) return;
   delete $('rec-info').dataset.keep;
+  editor.pause();
   $('rec-info').className = 'status muted';
   $('rec-info').textContent = 'Starting…';
-  const p = rec.start({ kind: mode, sourceId: picked?.id, fps: +$('fps').value, quality: $('quality').value, audio: $('sysaudio').checked });
+  const p = rec.start({ kind: mode, sourceId: picked?.id, size: mode === 'stage' ? (stageSize ?? size()) : null, fps: +$('fps').value, quality: $('quality').value, audio: $('sysaudio').checked });
   updateRecButton();
   try {
     const r = await p;
-    $('rec-info').textContent = `${r.width}×${r.height} @ ${$('fps').value} fps · ${r.video.toUpperCase()}${r.audio ? ` + ${r.audio.toUpperCase()}` : ' · no audio'}`;
+    const scaled = r.captured.width !== r.width || r.captured.height !== r.height ? ` (scaled from ${r.captured.width}×${r.captured.height})` : '';
+    $('rec-info').textContent = `${r.width}×${r.height}${scaled} @ ${$('fps').value} fps · ${r.video.toUpperCase()}${r.audio ? ` + ${r.audio.toUpperCase()}` : ' · no audio'}`;
     const v = $('preview');
     v.srcObject = r.stream; v.hidden = false; v.play().catch(() => {});
     tick = setInterval(updateRecButton, 250);
@@ -187,6 +193,7 @@ function finished(r) {
     $('rec-info').textContent = `${r.error ? `Stopped (${r.error}). ` : ''}Saved ${fmtSize(r.size)}.`;
     recent.unshift(r);
     renderRecent();
+    if (!SMOKE_RUN) editor.open(r); // straight into trimming
   } else {
     $('rec-info').className = 'status err';
     $('rec-info').textContent = `Recording failed: ${r.error ?? 'unknown error'}`;
@@ -201,7 +208,8 @@ function renderRecent() {
     const sz = document.createElement('span'); sz.className = 'muted'; sz.textContent = fmtSize(r.size);
     const play = document.createElement('button'); play.textContent = 'Play'; play.onclick = () => nc.playFile(r.file);
     const show = document.createElement('button'); show.textContent = 'Show'; show.onclick = () => nc.showFile(r.file);
-    li.append(n, sz, play, show);
+    const edit = document.createElement('button'); edit.textContent = 'Edit'; edit.title = 'Trim and export a clip'; edit.onclick = () => editor.open(r);
+    li.append(n, sz, play, show, edit);
     return li;
   }));
 }
@@ -210,7 +218,9 @@ nc.onRecordToggle(() => (rec.state === 'recording' ? stopRecording() : startReco
 window.addEventListener('beforeunload', () => { if (rec.state === 'recording') rec.stop(); });
 
 // ---------- smoke test hook (npm run smoke) ----------
+let SMOKE_RUN = false;
 window.__smoke = async (kind = 'stage') => {
+  SMOKE_RUN = true;
   if (kind === 'window') {
     const list = await nc.listSources();
     const s = list.find((x) => x.name === cfg.stageTitle) ?? list.find((x) => x.kind === 'screen');

@@ -44,7 +44,11 @@ export class Recorder {
     try {
       const prep = await window.nc.prepareCapture({ kind: opts.kind, sourceId: opts.sourceId, audio: opts.audio });
       this.stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: opts.fps, max: opts.fps } },
+        // For the stage, cap the capture at the requested size. Without this, Chromium's tab capture renders
+        // the page at the monitor's scaling on HiDPI screens (1024×1024 → 2048×2048 at 200 %).
+        video: opts.size
+          ? { frameRate: { ideal: opts.fps, max: opts.fps }, width: { max: opts.size.width }, height: { max: opts.size.height } }
+          : { frameRate: { ideal: opts.fps, max: opts.fps } },
         audio: prep.audio,
       });
       const vTrack = this.stream.getVideoTracks()[0];
@@ -53,7 +57,9 @@ export class Recorder {
       vTrack.contentHint = 'motion';
 
       // getSettings() can report the screen size before the first frame; the first real frame is the truth.
-      const { width, height } = await frameSize(this.stream, vTrack);
+      const captured = await frameSize(this.stream, vTrack);
+      // The file is always exactly the size asked for (stage) — anything else is scaled to it.
+      const { width, height } = opts.size ?? captured;
       const quality = QUALITY[opts.quality] ?? QUALITY_HIGH;
       const vCodec = await getFirstEncodableVideoCodec(['avc', 'hevc', 'vp9', 'av1'], { width: even(width), height: even(height), quality });
       if (!vCodec) throw new Error('No usable video encoder on this machine');
@@ -71,7 +77,9 @@ export class Recorder {
         // A captured window can be resized mid-recording: keep the first size and letterbox.
         sizeChangeBehavior: 'contain',
       };
-      if (width % 2 || height % 2) videoConfig.transform = { width: even(width), height: even(height) };
+      if (width % 2 || height % 2 || captured.width !== width || captured.height !== height) {
+        videoConfig.transform = { width: even(width), height: even(height) };
+      }
       this.videoSource = new MediaStreamVideoTrackSource(vTrack, videoConfig, { frameRate: opts.fps });
       this.output.addVideoTrack(this.videoSource, { frameRate: opts.fps });
       if (aTrack && aCodec) {
@@ -88,7 +96,7 @@ export class Recorder {
       await this.output.start();
       this.startedAt = performance.now();
       this.state = 'recording';
-      return { stream: this.stream, file: this.file.file, video: vCodec, audio: aTrack && aCodec ? aCodec : null, width: even(width), height: even(height) };
+      return { stream: this.stream, file: this.file.file, video: vCodec, captured, audio: aTrack && aCodec ? aCodec : null, width: even(width), height: even(height) };
     } catch (e) {
       await this.#cleanup(true);
       throw e;

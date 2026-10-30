@@ -7,14 +7,16 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "smoke": "electron . --smoke"
+    "smoke": "electron . --smoke",
+    "build": "node tools/build.mjs"
   },
   "license": "MIT",
   "dependencies": {
     "mediabunny": "^1.62.0"
   },
   "devDependencies": {
-    "electron": "^43.8.1"
+    "electron": "^43.8.1",
+    "@electron/packager": "^20.3.0"
   },
   "engines": {
     "node": ">=20"

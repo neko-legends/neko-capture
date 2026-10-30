@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' blob: mediastream:; style-src 'self'; script-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' blob: mediastream: nc-media:; style-src 'self'; script-src 'self'">
   <title>neko-capture</title>
   <link rel="stylesheet" href="control.css">
 </head>
@@ -73,6 +73,31 @@
     <button id="rec" class="rec"><b class="dot"></b><span id="rec-label">Record</span><kbd id="hotkey"></kbd></button>
     <div id="rec-info" class="status muted"></div>
     <video id="preview" muted playsinline hidden></video>
+  </section>
+
+  <section id="editor" class="panel editor" hidden>
+    <div class="row ed-head">
+      <h2>Clip</h2>
+      <span id="ed-name" class="n muted"></span>
+      <button id="ed-close" title="Close">✕</button>
+    </div>
+    <video id="ed-video" playsinline preload="auto"></video>
+    <div class="trim">
+      <div class="track"><div id="ed-sel" class="sel"></div><div id="ed-head" class="playhead"></div></div>
+      <input id="ed-start" type="range" min="0" max="1" step="0.01" value="0" aria-label="Clip start">
+      <input id="ed-end" type="range" min="0" max="1" step="0.01" value="1" aria-label="Clip end">
+      <div id="ed-bubble" class="bubble" hidden></div>
+    </div>
+    <div class="times">
+      <span>Start <b id="ed-start-t">0.00 s</b></span>
+      <span class="len">Clip <b id="ed-len-t">–</b></span>
+      <span>End <b id="ed-end-t">0.00 s</b></span>
+    </div>
+    <div class="row">
+      <button id="ed-play">▶ Play clip</button>
+      <button id="ed-export" class="primary">Export clip</button>
+    </div>
+    <div id="ed-status" class="status muted"></div>
   </section>
 
   <section class="panel">
