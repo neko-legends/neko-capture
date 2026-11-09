@@ -65,9 +65,15 @@ let stage = null;
 let stageOpts = null;
 const send = (ch, ...a) => { if (control && !control.isDestroyed()) control.webContents.send(ch, ...a); };
 
+// Tiling Wayland compositors (Hyprland on Omarchy, Sway, niri, river) draw no title bar, so there is nothing to
+// grab. There the control window is frameless and its header is the drag handle (-webkit-app-region in
+// control.css only works in a frameless window). Desktops with real title bars keep theirs.
+const NO_TITLEBAR_WM = process.platform === 'linux'
+  && (!!process.env.HYPRLAND_INSTANCE_SIGNATURE || /hyprland|sway|niri|river/i.test(process.env.XDG_CURRENT_DESKTOP ?? ''));
+
 function createControl() {
   control = new BrowserWindow({
-    width: 460, height: 820, minWidth: 400, minHeight: 560,
+    width: 460, height: 820, minWidth: 400, minHeight: 560, frame: !NO_TITLEBAR_WM,
     title: 'neko-capture', backgroundColor: '#17141c', autoHideMenuBar: true,
     webPreferences: { preload: path.join(here, 'preload.cjs'), backgroundThrottling: false },
   });
