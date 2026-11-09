@@ -45,9 +45,11 @@ Neither needs Node.js to run afterwards.
    Keys, mouse and dropdowns work as in a normal browser.
    F5 reloads the page and F12 opens DevTools.
 2. **App window tab:** press **Choose window…** and click a thumbnail. On Wayland the system picker opens instead.
+   On Omarchy that picker opens on its **Outputs** tab, which records a whole screen: click the **Windows** tab to pick a single window.
 3. Press **Record**, or **Ctrl+Alt+R** from anywhere (see [Hotkey](#hotkey)). Press it again to stop.
    Files go to `Videos/neko-capture` unless you change the folder.
-4. **Trim:** when a recording stops, the **Clip** box opens below it (or press **Edit** next to any recording).
+4. **Delete:** press **Delete** next to a recording to move it to the trash.
+5. **Trim:** when a recording stops, the **Clip** box opens below it (or press **Edit** next to any recording).
    Drag the two handles to set the start and end. The times show in seconds as you drag.
    **Play clip** plays just that part. **Export clip** saves `<recording> clip.mp4` next to the original and leaves the original as it was.
 

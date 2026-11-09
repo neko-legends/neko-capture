@@ -27,6 +27,9 @@ if (!cfg.hotkeyVia) { // no global hotkey here: say how to get one instead of ad
 }
 if (cfg.platform !== 'win32') $('sysaudio-wrap').hidden = true;
 if (cfg.wayland) $('pick').textContent = 'Choose window (system picker)…';
+if (cfg.wayland) { // the picker is the desktop's, and on Omarchy it opens on whole screens
+  $('picked').textContent = 'The system picker opens. To record one window, click its “Windows” tab first: the “Outputs” tab records a whole screen.';
+}
 
 const save = (patch) => nc.setSettings(patch);
 const size = () => ({ width: Math.max(64, Math.round(+$('w').value / 2) * 2 || 1920), height: Math.max(64, Math.round(+$('h').value / 2) * 2 || 1080) });
@@ -214,7 +217,23 @@ function renderRecent() {
     const play = document.createElement('button'); play.textContent = 'Play'; play.onclick = () => nc.playFile(r.file);
     const show = document.createElement('button'); show.textContent = 'Show'; show.onclick = () => nc.showFile(r.file);
     const edit = document.createElement('button'); edit.textContent = 'Edit'; edit.title = 'Trim and export a clip'; edit.onclick = () => editor.open(r);
-    li.append(n, sz, play, show, edit);
+    const del = document.createElement('button'); del.textContent = 'Delete'; del.className = 'danger'; del.title = 'Delete this recording (moves it to the trash)';
+    del.onclick = async () => {
+      del.disabled = true;
+      if (editor.rec?.file === r.file) editor.close(); // lets go of the file first
+      try {
+        const { trashed } = await nc.deleteFile(r.file);
+        recent.splice(recent.indexOf(r), 1);
+        renderRecent();
+        $('rec-info').className = 'status muted'; $('rec-info').dataset.keep = '1';
+        $('rec-info').textContent = trashed ? 'Moved to the trash.' : 'Deleted.';
+      } catch (e) {
+        del.disabled = false;
+        $('rec-info').className = 'status err'; $('rec-info').dataset.keep = '1';
+        $('rec-info').textContent = `Couldn’t delete: ${e.message}`;
+      }
+    };
+    li.append(n, sz, play, show, edit, del);
     return li;
   }));
 }

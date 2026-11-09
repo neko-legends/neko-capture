@@ -1,7 +1,7 @@
 {
   "name": "neko-capture",
   "productName": "Neko Capture",
-  "version": "26.11.11",
+  "version": "26.11.12",
   "description": "A screen recorder simpler than OBS: record a web page at an exact size, or any app window, to MP4. Works on Omarchy.",
   "type": "module",
   "main": "src/main.js",

@@ -281,6 +281,18 @@ function setupIpc() {
     if (p) await (await p).close().catch(() => {});
   });
 
+  // Delete a recording or clip made in this session: to the trash where the desktop has one, else for good.
+  ipcMain.handle('file:delete', async (_e, file) => {
+    if (!known.has(file)) throw new Error('Not a recording from this session.');
+    const p = readers.get(file);
+    readers.delete(file);
+    if (p) await (await p).close().catch(() => {});
+    let trashed = true;
+    try { await shell.trashItem(file); } catch { trashed = false; await fs.promises.rm(file, { force: true }); }
+    known.delete(file);
+    return { trashed };
+  });
+
   ipcMain.handle('dir:choose', async () => {
     const r = await dialog.showOpenDialog(control, { defaultPath: settings.outDir, properties: ['openDirectory', 'createDirectory'] });
     if (r.canceled || !r.filePaths[0]) return settings.outDir;

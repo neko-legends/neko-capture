@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('nc', {
   fileSize: (file) => ipcRenderer.invoke('file:size', file),
   readFile: (file, start, end) => ipcRenderer.invoke('file:read', file, start, end),
   releaseFile: (file) => ipcRenderer.invoke('file:release', file),
+  deleteFile: (file) => ipcRenderer.invoke('file:delete', file),
   chooseDir: () => ipcRenderer.invoke('dir:choose'),
   openDir: () => ipcRenderer.invoke('dir:open'),
   showFile: (f) => ipcRenderer.invoke('file:show', f),
