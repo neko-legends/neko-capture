@@ -222,8 +222,9 @@ function setupIpc() {
   ipcMain.handle('capture:prepare', (_e, req) => {
     if (req.kind === 'stage') {
       if (!stage || stage.isDestroyed()) throw new Error('Open the stage first.');
-      pendingCapture = { kind: 'stage', audio: true };
-      return { audio: true, name: stage.webContents.getURL() };
+      const audio = req.audio !== false; // false: the retry after the page's sound could not be captured
+      pendingCapture = { kind: 'stage', audio };
+      return { audio, name: stage.webContents.getURL() };
     }
     const source = sourceCache.get(req.sourceId);
     if (!source) throw new Error('That window is gone — pick it again.');
@@ -293,13 +294,21 @@ function setupIpc() {
 // ---------- smoke test: open a test page, record 3 s, print the file ----------
 async function runSmoke() {
   console.log('SMOKE_PID ' + process.pid);
-  const testUrl = 'file://' + path.join(here, '..', 'test', 'smoke.html');
+  // --url=<address> records that page instead of the built-in test page.
+  const testUrl = process.argv.find((x) => x.startsWith('--url='))?.slice(6) || 'file://' + path.join(here, '..', 'test', 'smoke.html');
   settings.outDir = path.join(app.getPath('temp'), 'neko-capture-smoke');
   await new Promise((r) => control.webContents.once('did-finish-load', r));
   // --size=WxH and --borderless let the self-test try other stage shapes (npm run smoke -- --size=1080x1920).
   const m = /^--size=(\d+)x(\d+)$/.exec(process.argv.find((x) => x.startsWith('--size=')) ?? '');
   openStage({ url: testUrl, width: m ? +m[1] : 1280, height: m ? +m[2] : 720, borderless: process.argv.includes('--borderless') });
   await new Promise((r) => stage.webContents.once('did-finish-load', r));
+  if (process.argv.includes('--click')) { // pages that only start their sound after a click
+    await new Promise((r) => setTimeout(r, 2500));
+    const [x, y] = [Math.round(stageOpts.width / 2), Math.round(stageOpts.height / 2)];
+    stage.webContents.sendInputEvent({ type: 'mouseDown', x, y, button: 'left', clickCount: 1 });
+    stage.webContents.sendInputEvent({ type: 'mouseUp', x, y, button: 'left', clickCount: 1 });
+    await new Promise((r) => setTimeout(r, 1500));
+  }
   await new Promise((r) => setTimeout(r, 500));
   control.webContents.executeJavaScript(`window.__smoke(${JSON.stringify(process.argv.includes('--window') ? 'window' : 'stage')})`).catch((e) => { console.log('SMOKE_RESULT ' + JSON.stringify({ error: String(e) })); app.quit(); });
   setTimeout(() => { console.log('SMOKE_RESULT {"error":"timeout"}'); app.quit(); }, 30000);

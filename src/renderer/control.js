@@ -175,7 +175,8 @@ async function startRecording() {
   try {
     const r = await p;
     const scaled = r.captured.width !== r.width || r.captured.height !== r.height ? ` (scaled from ${r.captured.width}×${r.captured.height})` : '';
-    $('rec-info').textContent = `${r.width}×${r.height}${scaled} @ ${$('fps').value} fps · ${r.video.toUpperCase()}${r.audio ? ` + ${r.audio.toUpperCase()}` : ' · no audio'}`;
+    $('rec-info').textContent = `${r.width}×${r.height}${scaled} @ ${$('fps').value} fps · ${r.video.toUpperCase()}${r.audio ? ` + ${r.audio.toUpperCase()}` : r.audioError ? ` · no sound (${r.audioError})` : ' · no sound'}`;
+    if (r.audioError) $('rec-info').className = 'status warn';
     const v = $('preview');
     v.srcObject = r.stream; v.hidden = false; v.play().catch(() => {});
     tick = setInterval(updateRecButton, 250);

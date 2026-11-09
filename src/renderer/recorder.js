@@ -42,15 +42,26 @@ export class Recorder {
     this.state = 'starting';
     this.bytes = 0;
     try {
-      const prep = await window.nc.prepareCapture({ kind: opts.kind, sourceId: opts.sourceId, audio: opts.audio });
-      this.stream = await navigator.mediaDevices.getDisplayMedia({
-        // For the stage, cap the capture at the requested size. Without this, Chromium's tab capture renders
-        // the page at the monitor's scaling on HiDPI screens (1024×1024 → 2048×2048 at 200 %).
-        video: opts.size
-          ? { frameRate: { ideal: opts.fps, max: opts.fps }, width: { max: opts.size.width }, height: { max: opts.size.height } }
-          : { frameRate: { ideal: opts.fps, max: opts.fps } },
-        audio: prep.audio,
-      });
+      // For the stage, cap the capture at the requested size. Without this, Chromium's tab capture renders
+      // the page at the monitor's scaling on HiDPI screens (1024×1024 → 2048×2048 at 200 %).
+      const video = opts.size
+        ? { frameRate: { ideal: opts.fps, max: opts.fps }, width: { max: opts.size.width }, height: { max: opts.size.height } }
+        : { frameRate: { ideal: opts.fps, max: opts.fps } };
+      // Record the sound as it is: stereo, without the voice-call processing meant for microphones.
+      const sound = { channelCount: 2, echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+      // The stage always records the page's own sound; a window records system sound where the OS allows it.
+      const wantAudio = opts.kind === 'stage' ? true : opts.audio;
+      let prep = await window.nc.prepareCapture({ kind: opts.kind, sourceId: opts.sourceId, audio: wantAudio });
+      let audioError = null;
+      try {
+        this.stream = await navigator.mediaDevices.getDisplayMedia({ video, audio: prep.audio ? sound : false });
+      } catch (e) {
+        // The sound could not be captured: a recording without sound beats no recording.
+        if (!prep.audio || !/audio/i.test(String(e?.message ?? e))) throw e;
+        audioError = String(e?.message ?? e);
+        prep = await window.nc.prepareCapture({ kind: opts.kind, sourceId: opts.sourceId, audio: false });
+        this.stream = await navigator.mediaDevices.getDisplayMedia({ video, audio: false });
+      }
       const vTrack = this.stream.getVideoTracks()[0];
       const aTrack = this.stream.getAudioTracks()[0] ?? null;
       if (!vTrack) throw new Error('No video from the capture source');
@@ -96,7 +107,7 @@ export class Recorder {
       await this.output.start();
       this.startedAt = performance.now();
       this.state = 'recording';
-      return { stream: this.stream, file: this.file.file, video: vCodec, captured, audio: aTrack && aCodec ? aCodec : null, width: even(width), height: even(height) };
+      return { stream: this.stream, file: this.file.file, video: vCodec, captured, audio: aTrack && aCodec ? aCodec : null, audioError, width: even(width), height: even(height) };
     } catch (e) {
       await this.#cleanup(true);
       throw e;
