@@ -1,12 +1,19 @@
-# neko-capture
+# Neko Capture
 
-A small recorder for two jobs:
+A screen recorder that is simpler than OBS. No scenes, sources or profiles to set up:
+choose what to record, press **Record**, get an MP4.
+
+It does two jobs:
 
 - **Web page:** open any URL in a real browser window whose page is exactly the pixel size you choose
   (1920×1080, 1080×1920, …), play or click around in it normally, and record it.
 - **App window:** record any app window, or a whole screen.
 
 Recordings are MP4 (H.264 video, AAC or Opus audio) at a steady 30 or 60 fps.
+When a recording stops you can trim it to a clip in the same window.
+
+Built for [Omarchy](https://omarchy.org) (Arch + Hyprland, Wayland), where it works without any setup.
+It also runs on Windows from source.
 
 ## Install
 
