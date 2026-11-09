@@ -21,6 +21,10 @@ $('quality').value = cfg.quality;
 $('outdir').textContent = cfg.outDir;
 $('outdir').title = cfg.outDir;
 $('hotkey').textContent = cfg.hotkey.replace('CommandOrControl', cfg.platform === 'darwin' ? 'Cmd' : 'Ctrl');
+if (!cfg.hotkeyVia) { // no global hotkey here: say how to get one instead of advertising a dead key
+  $('hotkey').hidden = true;
+  $('rec').title = 'To start/stop from anywhere, bind a key in your window manager to: neko-capture --toggle-record';
+}
 if (cfg.platform !== 'win32') $('sysaudio-wrap').hidden = true;
 if (cfg.wayland) $('pick').textContent = 'Choose window (system picker)…';
 

@@ -1,14 +1,15 @@
 {
   "name": "neko-capture",
-  "productName": "neko-capture",
-  "version": "0.1.0",
+  "productName": "Neko Capture",
+  "version": "26.11.9",
   "description": "Capture a URL at an exact size (and interact with it), or capture an app window. Record/stop to MP4.",
   "type": "module",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "smoke": "electron . --smoke",
-    "build": "node tools/build.mjs"
+    "build": "node tools/build.mjs",
+    "dist": "electron-builder --linux AppImage --publish never"
   },
   "license": "MIT",
   "dependencies": {
@@ -16,9 +17,36 @@
   },
   "devDependencies": {
     "electron": "^43.8.1",
-    "@electron/packager": "^20.3.0"
+    "@electron/packager": "^20.3.0",
+    "electron-builder": "^26.0.12"
   },
   "engines": {
     "node": ">=20"
+  },
+  "author": "Neko Legends",
+  "homepage": "https://github.com/neko-legends/neko-capture",
+  "build": {
+    "appId": "com.nekolegends.capture",
+    "productName": "Neko Capture",
+    "executableName": "neko-capture",
+    "artifactName": "Neko-Capture_${version}_amd64.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "test/smoke.html",
+      "assets/icon.png",
+      "package.json",
+      "LICENSE"
+    ],
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "AudioVideo",
+      "icon": "assets/icon.png",
+      "synopsis": "Record a web page at an exact size, or any app window, to MP4"
+    }
   }
 }

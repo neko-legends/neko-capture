@@ -1,9 +1,13 @@
 @echo off
 rem neko-capture: double-click to run. First run installs dependencies (~150 MB, needs Node.js).
 cd /d "%~dp0"
-if not exist "node_modules\electron\dist\electron.exe" (
+if not exist "node_modules\electron\install.js" (
   echo Installing dependencies, first run only...
   call npm install || goto :fail
+)
+rem A checkout shared with Linux has no Windows Electron yet: fetch it.
+if not exist "node_modules\electron\dist\electron.exe" (
+  call node node_modules\electron\install.js || goto :fail
 )
 call npx electron .
 exit /b 0

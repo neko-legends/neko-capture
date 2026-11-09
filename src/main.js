@@ -12,6 +12,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import { execFile } from 'node:child_process';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SMOKE = process.argv.includes('--smoke');
@@ -33,14 +34,13 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-if (SMOKE) app.commandLine.appendSwitch('no-sandbox');
 // nc-media://file/?f=<path> lets the clip editor's <video> play a recording (with seeking) without
 // opening up file:// access. Only files this session recorded or exported are served.
 protocol.registerSchemesAsPrivileged([{ scheme: 'nc-media', privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } }]);
 
 // ---------- settings ----------
 const DEFAULTS = {
-  url: 'http://localhost:5173/games/voxel-derby/',
+  url: 'https://nekolegends.com/res/projects/purplePlanet/',
   width: 1920,
   height: 1080,
   borderless: false,
@@ -208,7 +208,7 @@ function stamp() {
 
 // ---------- IPC ----------
 function setupIpc() {
-  ipcMain.handle('settings:get', () => ({ ...settings, platform: process.platform, wayland: process.platform === 'linux' && !!process.env.WAYLAND_DISPLAY, hotkey: HOTKEY, stageTitle: STAGE_TITLE }));
+  ipcMain.handle('settings:get', () => ({ ...settings, platform: process.platform, wayland: process.platform === 'linux' && !!process.env.WAYLAND_DISPLAY, hotkey: HOTKEY, hotkeyVia: hotkeyVia, stageTitle: STAGE_TITLE }));
   ipcMain.handle('settings:set', (_e, patch) => { Object.assign(settings, patch); saveSettings(); return settings; });
 
   ipcMain.handle('stage:open', (_e, opts) => openStage(opts));
@@ -292,24 +292,81 @@ function setupIpc() {
 
 // ---------- smoke test: open a test page, record 3 s, print the file ----------
 async function runSmoke() {
+  console.log('SMOKE_PID ' + process.pid);
   const testUrl = 'file://' + path.join(here, '..', 'test', 'smoke.html');
   settings.outDir = path.join(app.getPath('temp'), 'neko-capture-smoke');
   await new Promise((r) => control.webContents.once('did-finish-load', r));
-  openStage({ url: testUrl, width: 1280, height: 720, borderless: false });
+  // --size=WxH and --borderless let the self-test try other stage shapes (npm run smoke -- --size=1080x1920).
+  const m = /^--size=(\d+)x(\d+)$/.exec(process.argv.find((x) => x.startsWith('--size=')) ?? '');
+  openStage({ url: testUrl, width: m ? +m[1] : 1280, height: m ? +m[2] : 720, borderless: process.argv.includes('--borderless') });
   await new Promise((r) => stage.webContents.once('did-finish-load', r));
   await new Promise((r) => setTimeout(r, 500));
   control.webContents.executeJavaScript(`window.__smoke(${JSON.stringify(process.argv.includes('--window') ? 'window' : 'stage')})`).catch((e) => { console.log('SMOKE_RESULT ' + JSON.stringify({ error: String(e) })); app.quit(); });
   setTimeout(() => { console.log('SMOKE_RESULT {"error":"timeout"}'); app.quit(); }, 30000);
 }
 
-app.whenReady().then(() => {
-  loadSettings();
-  setupIpc();
-  setupDisplayMedia();
-  setupMediaProtocol();
-  createControl();
-  try { globalShortcut.register(HOTKEY, () => send('record:toggle')); } catch { /* hotkey unavailable (some Wayland setups) */ }
-  if (SMOKE) runSmoke();
+// ---------- global hotkey ----------
+// Windows/X11: Electron's globalShortcut. Hyprland (Omarchy): the desktop portal refuses shortcuts from an app
+// without an installed app id and would still need a hand-written bind, so the key is bound in Hyprland for as
+// long as the app runs (removed on quit) and signals this process. Anywhere else, bind a key in your window
+// manager to `neko-capture --toggle-record`.
+let hotkeyVia = ''; // 'electron' | 'hyprland' | ''
+let hyprBound = null; // how the key was bound: 'lua' | 'keyword'
+const HYPR_KEYS = 'CTRL + ALT + R';
+const toggleRecord = () => send('record:toggle');
+const hyprctl = (...args) => new Promise((resolve) => {
+  execFile('hyprctl', args, { timeout: 3000 }, (err, stdout) => resolve(err ? null : String(stdout).trim()));
 });
-app.on('will-quit', () => globalShortcut.unregisterAll());
+
+async function bindHyprlandHotkey() {
+  const binds = await hyprctl('binds', '-j');
+  if (binds === null) return false;
+  try { // leave an existing Ctrl+Alt+R binding alone (modmask: ctrl 4 + alt 8)
+    if (JSON.parse(binds).some((b) => b.modmask === 12 && String(b.key).toLowerCase() === 'r')) return false;
+  } catch { return false; }
+  // Signal only this very process: the start time guards against the pid being reused after a crash.
+  let started = '';
+  try { started = fs.readFileSync(`/proc/${process.pid}/stat`, 'utf8').split(') ').pop().split(' ')[19]; } catch { return false; }
+  const cmd = `sh -c '[ "$(sed "s/.*) //" /proc/${process.pid}/stat | cut -d" " -f20)" = "${started}" ] && kill -USR2 ${process.pid}'`;
+  process.on('SIGUSR2', toggleRecord);
+  const has = async () => { try { return JSON.parse(await hyprctl('binds', '-j') ?? '[]').some((b) => b.modmask === 12 && String(b.key).toLowerCase() === 'r'); } catch { return false; } };
+  await hyprctl('eval', `hl.bind(${JSON.stringify(HYPR_KEYS)}, hl.dsp.exec_cmd(${JSON.stringify(cmd)}))`); // Lua config (Hyprland 0.5x+)
+  if (await has()) { hyprBound = 'lua'; return true; }
+  await hyprctl('keyword', 'bind', `CTRL ALT, R, exec, ${cmd}`); // classic hyprland.conf syntax
+  if (await has()) { hyprBound = 'keyword'; return true; }
+  return false;
+}
+function unbindHyprlandHotkey() {
+  if (hyprBound === 'lua') execFile('hyprctl', ['eval', `hl.unbind(${JSON.stringify(HYPR_KEYS)})`], () => {});
+  else if (hyprBound === 'keyword') execFile('hyprctl', ['keyword', 'unbind', 'CTRL ALT, R'], () => {});
+  hyprBound = null;
+}
+
+async function setupHotkey() {
+  if (process.platform === 'linux' && process.env.HYPRLAND_INSTANCE_SIGNATURE) {
+    if (await bindHyprlandHotkey()) { hotkeyVia = 'hyprland'; return; }
+  }
+  try { if (globalShortcut.register(HOTKEY, toggleRecord)) hotkeyVia = 'electron'; } catch { /* hotkey unavailable */ }
+}
+
+// One running copy. Starting it again brings the control window forward; `--toggle-record` starts/stops the
+// recording in the running copy (for a window-manager key binding).
+if (!SMOKE && !app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', (_e, argv) => {
+    if (argv.includes('--toggle-record')) return toggleRecord();
+    if (control && !control.isDestroyed()) { if (control.isMinimized()) control.restore(); control.focus(); }
+  });
+  app.whenReady().then(async () => {
+    loadSettings();
+    if (!SMOKE || process.argv.includes('--hotkey')) await setupHotkey();
+    setupIpc();
+    setupDisplayMedia();
+    setupMediaProtocol();
+    createControl();
+    if (SMOKE) runSmoke();
+  });
+}
+app.on('will-quit', () => { globalShortcut.unregisterAll(); unbindHyprlandHotkey(); });
 app.on('window-all-closed', () => app.quit());
