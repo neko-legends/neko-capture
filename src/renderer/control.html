@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' blob: mediastream: nc-media:; style-src 'self'; script-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' blob: mediastream: nc-media:; style-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-S56Mo6iQgaAaieQE6KZTGF6cXWZOaoodcq0Klk+a07U='; worker-src 'self' blob:">
+  <!-- The AAC encoder imports "mediabunny" by name and runs its WASM in a blob worker. Editing this map means updating its sha256 above. -->
+  <script type="importmap">{"imports":{"mediabunny":"../../node_modules/mediabunny/dist/bundles/mediabunny.mjs"}}</script>
   <title>neko-capture</title>
   <link rel="stylesheet" href="control.css">
 </head>

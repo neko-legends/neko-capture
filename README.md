@@ -9,7 +9,7 @@ It does two jobs:
   (1920×1080, 1080×1920, …), play or click around in it normally, and record it.
 - **App window:** record any app window, or a whole screen.
 
-Recordings are MP4 (H.264 video, AAC or Opus audio) at a steady 30 or 60 fps.
+Recordings are MP4 (H.264 video, AAC audio — the format X and other sites accept) at a steady 30 or 60 fps.
 When a recording stops you can trim it to a clip in the same window.
 
 Built for [Omarchy](https://omarchy.org) (Arch + Hyprland, Wayland), where it works without any setup.

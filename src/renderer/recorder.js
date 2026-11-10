@@ -5,6 +5,8 @@ import {
   QUALITY_MEDIUM, QUALITY_HIGH, QUALITY_VERY_HIGH,
 } from '../../node_modules/mediabunny/dist/bundles/mediabunny.mjs';
 
+import { ensureAac } from './aac.js';
+
 const QUALITY = { medium: QUALITY_MEDIUM, high: QUALITY_HIGH, veryhigh: QUALITY_VERY_HIGH };
 const even = (n) => Math.max(2, Math.round(n / 2) * 2);
 
@@ -74,6 +76,8 @@ export class Recorder {
       const quality = QUALITY[opts.quality] ?? QUALITY_HIGH;
       const vCodec = await getFirstEncodableVideoCodec(['avc', 'hevc', 'vp9', 'av1'], { width: even(width), height: even(height), quality });
       if (!vCodec) throw new Error('No usable video encoder on this machine');
+      // AAC is what X and other sites accept in an MP4; Opus is only the last resort.
+      if (aTrack) await ensureAac();
       const aCodec = aTrack ? await getFirstEncodableAudioCodec(['aac', 'opus']) : null;
 
       this.file = await window.nc.createFile('mp4');

@@ -6,6 +6,8 @@ import {
   Input, Output, Conversion, CustomSource, ALL_FORMATS, Mp4OutputFormat, StreamTarget,
 } from '../../node_modules/mediabunny/dist/bundles/mediabunny.mjs';
 
+import { ensureAac } from './aac.js';
+
 const $ = (id) => document.getElementById(id);
 const nc = window.nc;
 const GAP = 0.1; // shortest clip, seconds
@@ -175,7 +177,10 @@ export class ClipEditor {
       const fileId = out.id;
       const writable = new WritableStream({ write: (chunk) => nc.writeFile(fileId, chunk.data, chunk.position) });
       const output = new Output({ format: new Mp4OutputFormat(), target: new StreamTarget(writable, { chunked: true, chunkSize: 4 * 1024 * 1024 }) });
-      const conv = await Conversion.init({ input, output, trim: { start, end }, showWarnings: false });
+      // Sound always leaves as AAC: a clip of an older recording (Opus) becomes postable on X.
+      // AAC sources are still copied without re-encoding.
+      const aac = await ensureAac();
+      const conv = await Conversion.init({ input, output, trim: { start, end }, showWarnings: false, ...(aac ? { audio: { codec: 'aac' } } : {}) });
       if (!conv.isValid) throw new Error(conv.discardedTracks.map((t) => t.reason).join(', ') || 'nothing to export');
       this.exporting = conv;
       conv.onProgress = (p) => this.#status(`Exporting ${sec(end - start)}… ${Math.round(p * 100)}%`);
