@@ -332,8 +332,8 @@ async function runSmoke() {
     await new Promise((r) => setTimeout(r, 1500));
   }
   await new Promise((r) => setTimeout(r, 500));
-  control.webContents.executeJavaScript(`window.__smoke(${JSON.stringify(process.argv.includes('--window') ? 'window' : 'stage')})`).catch((e) => { console.log('SMOKE_RESULT ' + JSON.stringify({ error: String(e) })); app.quit(); });
-  setTimeout(() => { console.log('SMOKE_RESULT {"error":"timeout"}'); app.quit(); }, 30000);
+  control.webContents.executeJavaScript(`window.__smoke(${JSON.stringify(process.argv.includes('--window') ? 'window' : 'stage')}, ${process.argv.includes('--repeat')})`).catch((e) => { console.log('SMOKE_RESULT ' + JSON.stringify({ error: String(e) })); app.quit(); });
+  setTimeout(() => { console.log('SMOKE_RESULT {"error":"timeout"}'); app.quit(); }, 45000);
 }
 
 // ---------- global hotkey ----------

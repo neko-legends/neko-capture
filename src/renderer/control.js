@@ -181,6 +181,9 @@ async function startRecording() {
     $('rec-info').textContent = `${r.width}×${r.height}${scaled} @ ${$('fps').value} fps · ${r.video.toUpperCase()}${r.audio ? ` + ${r.audio.toUpperCase()}` : r.audioError ? ` · no sound (${r.audioError})` : ' · no sound'}`;
     if (r.audioError) $('rec-info').className = 'status warn';
     const v = $('preview');
+    // While a page is being recorded Chromium stops playing its sound on the speakers (it goes to the
+    // recording instead), so the preview plays it. A window recording's sound is already audible: keep that muted.
+    v.muted = !(mode === 'stage' && r.audio);
     v.srcObject = r.stream; v.hidden = false; v.play().catch(() => {});
     tick = setInterval(updateRecButton, 250);
     if (mode === 'stage') nc.focusStage(); // straight back to the game
@@ -243,7 +246,7 @@ window.addEventListener('beforeunload', () => { if (rec.state === 'recording') r
 
 // ---------- smoke test hook (npm run smoke) ----------
 let SMOKE_RUN = false;
-window.__smoke = async (kind = 'stage') => {
+window.__smoke = async (kind = 'stage', repeat = false) => {
   SMOKE_RUN = true;
   if (kind === 'window') {
     const list = await nc.listSources();
@@ -257,6 +260,15 @@ window.__smoke = async (kind = 'stage') => {
   const info = $('rec-info').textContent;
   await new Promise((r) => setTimeout(r, 3000));
   await stopRecording();
+  if (repeat) { // a second recording in the same session
+    const first = window.__lastResult;
+    await new Promise((r) => setTimeout(r, 1500));
+    await startRecording();
+    if (rec.state !== 'recording') return nc.smokeDone({ ...first, second: { error: $('rec-info').textContent } });
+    await new Promise((r) => setTimeout(r, 3000));
+    await stopRecording();
+    return nc.smokeDone({ ...first, info, second: window.__lastResult });
+  }
   nc.smokeDone({ ...window.__lastResult, info });
 };
 

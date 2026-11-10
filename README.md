@@ -102,5 +102,6 @@ Starting the app a second time brings the running one forward; with `--toggle-re
 
 `npm run smoke` opens a test page, records 3 seconds and prints the result.
 Options after `--`: `--size=1080x1920`, `--borderless`, `--window` (app-window mode: you pick the source), `--hotkey`,
-`--url=<address>` (record that page instead of the test page), `--click` (click the page first, for pages that start their sound on a click).
+`--url=<address>` (record that page instead of the test page), `--click` (click the page first, for pages that start their sound on a click),
+`--repeat` (record twice in a row).
 The AppImage takes the same flags: `./Neko-Capture_<version>_amd64.AppImage --smoke`.
