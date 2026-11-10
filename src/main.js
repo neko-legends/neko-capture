@@ -49,13 +49,17 @@ const DEFAULTS = {
   outDir: '',
   mode: 'stage',
 };
+const SMOKE_DIR = () => path.join(app.getPath('temp'), 'neko-capture-smoke');
 const settingsPath = () => path.join(app.getPath('userData'), 'settings.json');
 let settings = { ...DEFAULTS };
 function loadSettings() {
   try { settings = { ...DEFAULTS, ...JSON.parse(fs.readFileSync(settingsPath(), 'utf8')) }; } catch { /* first run */ }
+  // Earlier self-test runs saved their temporary folder as the "Save to" folder: undo that.
+  if (settings.outDir && path.resolve(settings.outDir) === SMOKE_DIR()) settings.outDir = '';
   if (!settings.outDir) settings.outDir = path.join(app.getPath('videos'), 'neko-capture');
 }
 function saveSettings() {
+  if (SMOKE) return; // the self-test uses its own folder and size: never write those into the real settings
   try { fs.mkdirSync(path.dirname(settingsPath()), { recursive: true }); fs.writeFileSync(settingsPath(), JSON.stringify(settings, null, 2)); } catch (e) { console.error('settings save failed', e); }
 }
 
@@ -314,7 +318,7 @@ async function runSmoke() {
   console.log('SMOKE_PID ' + process.pid);
   // --url=<address> records that page instead of the built-in test page.
   const testUrl = process.argv.find((x) => x.startsWith('--url='))?.slice(6) || 'file://' + path.join(here, '..', 'test', 'smoke.html');
-  settings.outDir = path.join(app.getPath('temp'), 'neko-capture-smoke');
+  settings.outDir = SMOKE_DIR();
   await new Promise((r) => control.webContents.once('did-finish-load', r));
   // --size=WxH and --borderless let the self-test try other stage shapes (npm run smoke -- --size=1080x1920).
   const m = /^--size=(\d+)x(\d+)$/.exec(process.argv.find((x) => x.startsWith('--size=')) ?? '');
